@@ -3,12 +3,33 @@ from Views.MainView import MainView
 from datetime import date, datetime
 import pandas as pd
 
-Refdate = 20200624
+Refdate = 20200629
 Views = MainView(Refdate=Refdate)
 
-Views.updateProducts('US 10YR NOTE FUT (TY)')
+for i in NTNBs:
+    Views.addProductToDB(BBG_Ticker=i, Instrument='Nota do Tesouro Nacional (NTNB)')
+
+Views.updateProducts('BMF DI1 Future (OD)')
 
 
+
+# Views.updateProducts('FRA CUPOM CAMBIAL (GD)')
+ListCols = list(Views.bbgDict[Views.keys_bbgDict['Nota do Tesouro Nacional (NTNB)']]['BBG_Fields'])
+
+#Insert Product
+BBG_Ticker = 'EK697111 Corp'
+Instrument = 'Nota do Tesouro Nacional (NTNB)'
+
+
+fields = [
+    'SECURITY_NAME',
+    'PARSEKYABLE_DES',
+    'CRNCY',
+    'MATURITY',
+    'FUT_NOTICE_FIRST',
+    'FUT_FIRST_TRADE_DT']
+
+Views.API_BBG.BBG_POST(bbg_request='BDP', tickers=BBG_Ticker, fields=fields)
 
 Future_Months = {
     '1': 'F',
@@ -39,6 +60,14 @@ fields = [
     'FUTURES_VALUATION_DATE',
     'FUT_NOTICE_FIRST',
     'FUT_FIRST_TRADE_DT']
+
+Products_colList = ['Name',
+    'Description',
+    'BBG_Ticker',
+    'Id_Instrument',
+    'Expiration',
+    'Id_Currency',
+    'First_Trade_Date']
     
 baseYear = Views.dtRefdate.year
 Id_Instrument = Views.AP_Connection.getValue(query=f"SELECT Id FROM Instruments WHERE Name='{instrument}'")
@@ -46,6 +75,10 @@ prefixBBG = Views.AP_Connection.getValue(query=f"SELECT PrefixBBG FROM Instrumen
 sufixBBG = Views.AP_Connection.getValue(query=f"SELECT SufixBBG FROM Instruments WHERE Name='{instrument}'", vlType='str')
 
 tickerList = []
+
+for key, value in Future_Months.items():
+    BBG_Ticker = f"{prefixBBG}{value}20 {sufixBBG}"
+    tickerList.append(BBG_Ticker)
 
 # Loop to create tickers
 for i in range(baseYear-15, baseYear+15):
@@ -84,10 +117,8 @@ Prod_Insert_DF = Prod_BBGData.loc[~Prod_BBGData['BBG_Ticker'].isin(insertedProdu
 Prod_Insert_DF = Prod_Insert_DF.merge(Views.DF_Currencies, how='left', on='Currency')
 Prod_Insert_DF['Id_Instrument'] = Id_Instrument
 
-Insert_DF = Prod_Insert_DF[Views.Products_colList]
+Insert_DF = Prod_Insert_DF[Products_colList]
 
 # Insert into DataBase
 Views.AP_Connection.insertDataFrame(tableDB='Products', df=Insert_DF)
-
-
 
