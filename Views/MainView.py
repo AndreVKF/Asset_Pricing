@@ -35,7 +35,16 @@ class MainView(Generic):
         self.keys_bbgDict = {
             'US 10YR NOTE FUT (TY)': 'set1',
             'Nota do Tesouro Nacional (NTNB)': 'set2',
-            'BMF DI1 Future (OD)': 'set3'
+            'BMF DI1 Future (OD)': 'set3',
+            'FRA CUPOM CAMBIAL (GD)': 'set3',
+            'USSW - USD SWAP (LIB)': 'set4',
+            'BRAZIL CDS USD (CBRZ)': 'set4',
+            'ARGENTINA CDS USD (CARG)': 'set4',
+            'MEXICO CDS USD (CMEX)': 'set4',
+            'CHILE CDS USD (CCHI)': 'set4',
+            'PERU CDS USD (CPER)': 'set4',
+            'PANAMA CDS USD (CPAN)': 'set4',
+            'COLOMBIA CDS USD (CCOM)': 'set4'
         }
 
         self.bbgDict = {
@@ -67,7 +76,15 @@ class MainView(Generic):
                     'FUTURES_VALUATION_DATE',
                     'FUT_NOTICE_FIRST',
                     'FUT_FIRST_TRADE_DT'}
-                }
+                },
+            # USD SWAP LIBOR
+            # BZ CDS
+            'set4': {
+                'BBG_Fields': {
+                    'SHORT_NAME',
+                    'PARSEKYABLE_DES',
+                    'CRNCY'}
+            }
         }
 
         # Rename Columns to Insert Products        
@@ -79,7 +96,8 @@ class MainView(Generic):
             'MATURITY': 'Expiration',
             'FUT_FIRST_TRADE_DT': 'First_Trade_Date',
             'PARSEKYABLE_DES': 'BBG_Ticker',
-            'SECURITY_NAME': 'Description'
+            'SECURITY_NAME': 'Description',
+            'SHORT_NAME': 'Description'
         }
 
         # DataFrames from DB
@@ -87,7 +105,11 @@ class MainView(Generic):
         self.DF_Instruments = self.AP_Connection.getData(query=self.Queries.instrumentsDF())
 
     ''' Functions '''
-    def updateProductsIntoDB(self, instrument):
+
+    def updateProductsIntoDB(self, instrument, dtRange=15):
+        '''
+        Function to insert new products into database
+        '''
         fields = list(self.bbgDict[self.keys_bbgDict[instrument]]['BBG_Fields'])
 
         baseYear = self.dtRefdate.year
@@ -100,7 +122,7 @@ class MainView(Generic):
         tickerList = []
 
         # Loop to create tickers
-        for i in range(baseYear-20, baseYear+20):
+        for i in range(baseYear-dtRange, baseYear+dtRange):
             for key, value in self.Future_Months.items():
                 BBG_Ticker = f"{prefixBBG}{value}{str(i)[-2:]} {sufixBBG}"
                 tickerList.append(BBG_Ticker)
@@ -136,7 +158,11 @@ class MainView(Generic):
         # Insert into DataBase
         self.AP_Connection.insertDataFrame(tableDB='Products', df=Insert_DF)
 
-    def addProductToDB(self, BBG_Ticker, Instrument):
+
+    def addProductToDB(self, BBG_Ticker, Instrument, IsGeneric=False, Generic_Maturity=None, Maturity_Type='Months'):
+        '''
+        Function to add a single product into database
+        '''
         checkIfAlreadyInserted = self.AP_Connection.getValue(query=f"SELECT COUNT(*) FROM Products WHERE BBG_Ticker='{BBG_Ticker}'", vlType='int')
         # Check if product is already inserted on DataBase
         if checkIfAlreadyInserted:
@@ -168,6 +194,12 @@ class MainView(Generic):
         Prod_Insert_DF = Prod_BBGData.merge(self.DF_Currencies, how='left', on='Currency')
         Prod_Insert_DF['Id_Instrument'] = Id_Instrument
         Prod_Insert_DF['BBG_Ticker'] = BBG_Ticker
+
+        # Generic Adjustments
+        if IsGeneric:
+            Prod_Insert_DF['IsGeneric'] = 1
+            Prod_Insert_DF['Generic_Maturity'] = Generic_Maturity
+            Prod_Insert_DF['Id_Generic_Maturity_Types'] = self.AP_Connection.getValue(query=f"SELECT Id FROM Generic_Maturity_Types WHERE Range='{Maturity_Type}'", vlType='int')
 
         Insert_DF = Prod_Insert_DF[[col for col in productsDBColList['COLUMN_NAME'].to_list() if col in list(Prod_Insert_DF.columns)]]
         print(Insert_DF[['BBG_Ticker', 'Description']])

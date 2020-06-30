@@ -3,33 +3,23 @@ from Views.MainView import MainView
 from datetime import date, datetime
 import pandas as pd
 
-Refdate = 20200629
+Refdate = 20200630
 Views = MainView(Refdate=Refdate)
 
-for i in NTNBs:
-    Views.addProductToDB(BBG_Ticker=i, Instrument='Nota do Tesouro Nacional (NTNB)')
-
-Views.updateProducts('BMF DI1 Future (OD)')
-
-
+Views.addProductToDB(BBG_Ticker='GDG10 Curncy', Instrument='FRA CUPOM CAMBIAL (GD)', IsGeneric=True, Generic_Maturity=12, Maturity_Type='Months')
 
 # Views.updateProducts('FRA CUPOM CAMBIAL (GD)')
 ListCols = list(Views.bbgDict[Views.keys_bbgDict['Nota do Tesouro Nacional (NTNB)']]['BBG_Fields'])
 
 #Insert Product
-BBG_Ticker = 'EK697111 Corp'
+BBG_Ticker = 'CBRZ1U1 CBIN Curncy'
 Instrument = 'Nota do Tesouro Nacional (NTNB)'
 
-
-fields = [
-    'SECURITY_NAME',
+fields = ['SHORT_NAME',
     'PARSEKYABLE_DES',
-    'CRNCY',
-    'MATURITY',
-    'FUT_NOTICE_FIRST',
-    'FUT_FIRST_TRADE_DT']
+    'CRNCY']
 
-Views.API_BBG.BBG_POST(bbg_request='BDP', tickers=BBG_Ticker, fields=fields)
+Views.API_BBG.BBG_POST(bbg_request='BDP', tickers='COLOMBIA CDS USD 12M', fields=fields)
 
 Future_Months = {
     '1': 'F',
