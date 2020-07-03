@@ -1,9 +1,12 @@
 from Views.MainView import MainView
 
 from datetime import date, datetime
-import pandas as pd
+from bizdays import *
 
-Refdate = 20200630
+import pandas as pd
+import numpy as np
+
+Refdate = 20200703
 Views = MainView(Refdate=Refdate)
 
 Views.addProductToDB(BBG_Ticker='GDG10 Curncy', Instrument='FRA CUPOM CAMBIAL (GD)', IsGeneric=True, Generic_Maturity=12, Maturity_Type='Months')
@@ -11,104 +14,95 @@ Views.addProductToDB(BBG_Ticker='GDG10 Curncy', Instrument='FRA CUPOM CAMBIAL (G
 # Views.updateProducts('FRA CUPOM CAMBIAL (GD)')
 ListCols = list(Views.bbgDict[Views.keys_bbgDict['Nota do Tesouro Nacional (NTNB)']]['BBG_Fields'])
 
-#Insert Product
-BBG_Ticker = 'CBRZ1U1 CBIN Curncy'
-Instrument = 'Nota do Tesouro Nacional (NTNB)'
 
-fields = ['SHORT_NAME',
-    'PARSEKYABLE_DES',
-    'CRNCY']
+Views.API_BBG.BBG_POST(bbg_request='BDP', fields=['DUR_ADJ_MID', 'PX_LAST'], tickers=['ODF21 Comdty'])
+Views.API_BBG.BBG_POST(bbg_request='BDP', fields=['YAS_RISK'], tickers=['US71647NAN93 Corp'], overrides={'PX_CLOSE_DT': '20190630'})
 
-Views.API_BBG.BBG_POST(bbg_request='BDP', tickers='COLOMBIA CDS USD 12M', fields=fields)
+# Refdate
+# Id_Product
+# PU
+# Yield
+# Duration
 
-Future_Months = {
-    '1': 'F',
-    '2': 'G',
-    '3': 'H',
-    '4': 'J',
-    '5': 'K',    
-    '6': 'M',
-    '7': 'N',
-    '8': 'Q',
-    '9': 'U',
-    '10': 'V',
-    '11': 'X',
-    '12': 'Z'
-}
+# BMF DI1 Future (OD)
+# Nota do Tesouro Nacional (NTNB)
+# USSW - USD SWAP (LIB)
+# BRAZIL CDS USD (CBRZ)
+# FRA CUPOM CAMBIAL (GD)
+# BMF US Dollar Fut (UC)
+# ARGENTINA CDS USD (CARG)
+# MEXICO CDS USD (CMEX)
+# CHILE CDS USD (CCHI)
+# PERU CDS USD (CPER)
+# PANAMA CDS USD (CPAN)
+# COLOMBIA CDS USD (CCOM)
+# US 10YR NOTE FUT (TY)
 
 instrument = 'BMF DI1 Future (OD)'
+requestDate = 20200702
 
-# Produtos ja inseridos no BD
-insertedProducts = Views.AP_Connection.getData(query=Views.Queries.selectProductsByInstruments(instrument=instrument))
+# Set for requesting data from BBG
+keys_bbgPxRequest = {
+    'BMF DI1 Future (OD)': 'set1'
+}
 
-# Atributes/Arguments
-# Fields to request from Bloomberg
-fields = [
-    'SECURITY_NAME',
-    'PARSEKYABLE_DES',
-    'CRNCY',
-    'FUTURES_VALUATION_DATE',
-    'FUT_NOTICE_FIRST',
-    'FUT_FIRST_TRADE_DT']
+keys_calculateDuration = {
+    'BMF DI1 Future (OD)': 'calcDur1'
+}
 
-Products_colList = ['Name',
-    'Description',
-    'BBG_Ticker',
-    'Id_Instrument',
-    'Expiration',
-    'Id_Currency',
-    'First_Trade_Date']
-    
-baseYear = Views.dtRefdate.year
-Id_Instrument = Views.AP_Connection.getValue(query=f"SELECT Id FROM Instruments WHERE Name='{instrument}'")
-prefixBBG = Views.AP_Connection.getValue(query=f"SELECT PrefixBBG FROM Instruments WHERE Name='{instrument}'", vlType='str')
-sufixBBG = Views.AP_Connection.getValue(query=f"SELECT SufixBBG FROM Instruments WHERE Name='{instrument}'", vlType='str')
+keys_bbgPxBDP = {
+    'set1': {
+        'Yield': 'PX_LAST',
+        'PU': 'CONTRACT_VALUE'
+    }
+}
 
-tickerList = []
+keys_bbgPxBDH = {
+    'set1': {
+        'Yield': 'PX_LAST',
+        'PU': 'CONTRACT_VALUE'
+    }
+}
 
-for key, value in Future_Months.items():
-    BBG_Ticker = f"{prefixBBG}{value}20 {sufixBBG}"
-    tickerList.append(BBG_Ticker)
 
-# Loop to create tickers
-for i in range(baseYear-15, baseYear+15):
-    for key, value in Future_Months.items():
-        if i==2020:
-            BBG_Ticker = f"{prefixBBG}{value}{str(i)[-1:]} {sufixBBG}"
-        else:
-            BBG_Ticker = f"{prefixBBG}{value}{str(i)[-2:]} {sufixBBG}"
-        tickerList.append(BBG_Ticker)
+# Tickers to update
+products = Views.AP_Connection.getData(query=f"SELECT Id AS Id_Product, BBG_Ticker, Expiration FROM Products WHERE Id_Instrument=(SELECT Id FROM Instruments WHERE Name='{instrument}')")
+products['Expiration'] = pd.to_datetime(products['Expiration'])
 
-# Request from BBG
-Prod_BBGData = Views.API_BBG.BBG_POST(bbg_request='BDP', tickers=tickerList, fields=fields)
-Prod_BBGData.reset_index(inplace=True)
+pricesDBColList = Views.AP_Connection.getData(query=Views.Queries.columnNamesFromTable(tableName='Prices'))
 
-# Adjust columns
-Prod_BBGData['FUTURES_VALUATION_DATE'] = pd.to_datetime(Prod_BBGData['FUTURES_VALUATION_DATE']/1000, unit='s')
-Prod_BBGData['FUT_FIRST_TRADE_DT'] = pd.to_datetime(Prod_BBGData['FUT_FIRST_TRADE_DT']/1000, unit='s')
-Prod_BBGData['FUT_NOTICE_FIRST'] = pd.to_datetime(Prod_BBGData['FUT_NOTICE_FIRST']/1000, unit='s')
+# Update Prices
+pxSource = 'BDH'
+if datetime.strptime(str(requestDate), '%Y%m%d').date() == date.today():
+    pxSource = 'BDP'
 
-Prod_BBGData.rename(columns={
-    'index': 'Name',
-    'CRNCY': 'Currency',
-    'FUTURES_VALUATION_DATE': 'Valuation',
-    'FUT_NOTICE_FIRST': 'Expiration',
-    'FUT_FIRST_TRADE_DT': 'First_Trade_Date',
-    'index': 'Name',
-    'PARSEKYABLE_DES': 'BBG_Ticker',
-    'SECURITY_NAME': 'Description'
-}, inplace=True)
+# Request Data
+if pxSource == 'BDH':
+    BBG_Fields = keys_bbgPxBDH[keys_bbgPxRequest[instrument]]
+    BBG_Data = Views.API_BBG.BBG_POST(bbg_request=pxSource, tickers=products['BBG_Ticker'].to_list(), fields=list(BBG_Fields.values()), date_start=requestDate, date_end=requestDate).dropna()
+else:
+    BBG_Fields = keys_bbgPxBDP[keys_bbgPxRequest[instrument]]
+    BBG_Data = Views.API_BBG.BBG_POST(bbg_request=pxSource, tickers=products['BBG_Ticker'].to_list(), fields=list(BBG_Fields.values())).dropna()
 
-Prod_BBGData.dropna(inplace=True)
-Prod_BBGData.drop_duplicates(subset ="BBG_Ticker", keep = False, inplace = True)
+# Invert keys to items
+colNames = dict((v,k) for k,v in BBG_Fields.items())
+Insert_DataFrame = BBG_Data.rename(columns=colNames).reset_index().rename(columns={'index': 'BBG_Ticker'})
 
-# Products to be inserted
-Prod_Insert_DF = Prod_BBGData.loc[~Prod_BBGData['BBG_Ticker'].isin(insertedProducts['BBG_Ticker'])]
-Prod_Insert_DF = Prod_Insert_DF.merge(Views.DF_Currencies, how='left', on='Currency')
-Prod_Insert_DF['Id_Instrument'] = Id_Instrument
+Insert_DataFrame = Insert_DataFrame.merge(products, how='left', on='BBG_Ticker')
+Insert_DataFrame['Refdate'] = pd.to_datetime(datetime.strptime(str(requestDate), '%Y%m%d').date())
 
-Insert_DF = Prod_Insert_DF[Products_colList]
+# Check if needs to calculate duration
+if instrument in list(keys_calculateDuration.keys()):
+    # Calculate duration by calculateDuration dictionary
+    if keys_calculateDuration[instrument] == 'calcDur1':
+        # BMF DI1
+        # Adjust dataframe to show only values with open expiration
+        Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=datetime.strptime(str(requestDate), '%Y%m%d').date())]
+        Insert_DataFrame['BizDays'] = Insert_DataFrame.apply(lambda x: Views.cal.bizdays(x.Refdate.strftime('%Y-%m-%d'), x.Expiration.strftime('%Y-%m-%d')), axis=1)
+        Insert_DataFrame['BaseValue'] = 100000/((1+Insert_DataFrame['Yield']/100)**(Insert_DataFrame['BizDays']/252))
+        Insert_DataFrame['DiscountValue'] = 100000/((1+Insert_DataFrame['Yield']/100+0.01/100)**(Insert_DataFrame['BizDays']/252))
+        Insert_DataFrame['Duration'] = (np.abs(Insert_DataFrame['BaseValue']-Insert_DataFrame['DiscountValue'])/Insert_DataFrame['BaseValue'])*10000
+        
+Insert_DataFrame = Insert_DataFrame[[col for col in pricesDBColList['COLUMN_NAME'].to_list() if col in list(Insert_DataFrame.columns)]]
 
-# Insert into DataBase
-Views.AP_Connection.insertDataFrame(tableDB='Products', df=Insert_DF)
-
+        

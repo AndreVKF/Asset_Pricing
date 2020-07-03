@@ -15,6 +15,18 @@ class Queries():
 
         return query
 
+    def QFeriados_BRA(self):
+        query = f"""
+            SELECT
+                *
+            FROM
+                [PM].[dbo].[Feriados_BRA]
+            ORDER BY
+                Data
+            """
+
+        return query
+
     def selectProductsByInstruments(self, instrument):
         query = f"""
         SELECT

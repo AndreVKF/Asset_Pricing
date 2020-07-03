@@ -2,6 +2,7 @@ from Classes.Generic import Generic
 from Classes.Queries import Queries
 
 import pandas as pd
+from bizdays import *
 
 class MainView(Generic):
     ''' Constructor '''
@@ -28,6 +29,10 @@ class MainView(Generic):
             '11': 'X',
             '12': 'Z'
             }
+        
+        # Create Calendar
+        self.DF_Feriados_BRA = self.AP_Connection.getData(query = self.Queries.QFeriados_BRA())
+        self.Create_Calendar()
 
         self.DateColumns = ['MATURITY', 'FUTURES_VALUATION_DATE', 'FUT_NOTICE_FIRST', 'FUT_FIRST_TRADE_DT']
 
@@ -104,8 +109,9 @@ class MainView(Generic):
         self.DF_Currencies = self.AP_Connection.getData(query=self.Queries.currenciesDF())
         self.DF_Instruments = self.AP_Connection.getData(query=self.Queries.instrumentsDF())
 
-    ''' Functions '''
-
+    '''
+    ##################################### MAIN FUNCTIONS #####################################
+    '''
     def updateProductsIntoDB(self, instrument, dtRange=15):
         '''
         Function to insert new products into database
@@ -206,3 +212,15 @@ class MainView(Generic):
 
         # Insert into DataBase
         self.AP_Connection.insertDataFrame(tableDB='Products', df=Insert_DF)
+
+
+    '''
+    ##################################### AUXILIAR FUNCTIONS #####################################
+    '''
+    def Create_Calendar(self):
+        """Function to create self.calendar base
+        """
+        self.DF_Feriados_BRA['Data'].to_csv('Holidays.csv', header=False, index=None)
+        self.holidays = load_holidays('Holidays.csv')
+
+        self.cal = Calendar(self.holidays, ['Sunday', 'Saturday'], name='Brazil')
