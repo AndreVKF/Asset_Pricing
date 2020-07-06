@@ -72,3 +72,10 @@ class Queries():
         """
 
         return query
+
+    def QDeletePricesByProduct(self, Id_Products):
+        query = f"""
+        DELETE FROM Products WHERE Id_Product IN ({','.join(Id_Products)})
+        """
+
+        return query

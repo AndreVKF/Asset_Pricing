@@ -2,11 +2,13 @@ from Classes.Generic import Generic
 from Classes.Queries import Queries
 
 import pandas as pd
+import numpy as np
+from datetime import datetime
 from bizdays import *
 
 class MainView(Generic):
     ''' Constructor '''
-    def __init__(self, Refdate):
+    def __init__(self, Refdate=int(datetime.today().strftime("%Y%m%d"))):
         ''' Init Arguments '''
         Generic.__init__(self)
         
@@ -49,7 +51,8 @@ class MainView(Generic):
             'CHILE CDS USD (CCHI)': 'set4',
             'PERU CDS USD (CPER)': 'set4',
             'PANAMA CDS USD (CPAN)': 'set4',
-            'COLOMBIA CDS USD (CCOM)': 'set4'
+            'COLOMBIA CDS USD (CCOM)': 'set4',
+            'BMF US Dollar Fut (UC)': 'set5'
         }
 
         self.bbgDict = {
@@ -89,7 +92,16 @@ class MainView(Generic):
                     'SHORT_NAME',
                     'PARSEKYABLE_DES',
                     'CRNCY'}
-            }
+            },
+            # BMF US Dollar FUT
+            'set5': {
+                'BBG_Fields': {
+                    'SECURITY_NAME',
+                    'CRNCY',
+                    'FUTURES_VALUATION_DATE',
+                    'FUT_NOTICE_FIRST',
+                    'FUT_FIRST_TRADE_DT'}
+                }
         }
 
         # Rename Columns to Insert Products        
@@ -103,6 +115,65 @@ class MainView(Generic):
             'PARSEKYABLE_DES': 'BBG_Ticker',
             'SECURITY_NAME': 'Description',
             'SHORT_NAME': 'Description'
+        }
+
+        # Set for requesting data from BBG
+        self.keys_bbgPxRequest = {
+            'BMF DI1 Future (OD)': 'set1',
+            'FRA CUPOM CAMBIAL (GD)': 'set1',
+            'Nota do Tesouro Nacional (NTNB)': 'set2',
+            'US 10YR NOTE FUT (TY)': 'set2',
+            'USSW - USD SWAP (LIB)': 'set3',
+            'BRAZIL CDS USD (CBRZ)': 'set3',
+            'ARGENTINA CDS USD (CARG)': 'set3',
+            'MEXICO CDS USD (CMEX)': 'set3',
+            'CHILE CDS USD (CCHI)': 'set3',
+            'PERU CDS USD (CPER)': 'set3',
+            'PANAMA CDS USD (CPAN)': 'set3',
+            'COLOMBIA CDS USD (CCOM)': 'set3',
+            'BMF US Dollar Fut (UC)': 'set4'
+        }
+
+        self.keys_calculateDuration = {
+            'BMF DI1 Future (OD)': 'calcDur1',
+            'Nota do Tesouro Nacional (NTNB)': 'calcDur2',
+            'FRA CUPOM CAMBIAL (GD)': 'calcDur3'
+        }
+
+        self.keys_bbgPxBDP = {
+            'set1': {
+                'Yield': 'PX_LAST',
+                'PU': 'CONTRACT_VALUE'
+            },
+            'set2': {
+                'Yield': 'YLD_YTM_MID',
+                'PU': 'PX_LAST',
+                'RISK_MID': 'RISK_MID'
+            },
+            'set3': {
+                'Yield': 'PX_LAST'
+            },
+            'set4': {
+                'PU': 'PX_LAST'
+            }
+        }
+
+        self.keys_bbgPxBDH = {
+            'set1': {
+                'Yield': 'PX_LAST',
+                'PU': 'CONTRACT_VALUE'
+            },
+            'set2': {
+                'Yield': 'YLD_YTM_MID',
+                'PU': 'PX_LAST',
+                'RISK_MID': 'RISK_MID'
+            },
+            'set3': {
+                'Yield': 'PX_LAST'
+            },
+            'set4': {
+                'PU': 'PX_LAST'
+            }
         }
 
         # DataFrames from DB
@@ -213,14 +284,131 @@ class MainView(Generic):
         # Insert into DataBase
         self.AP_Connection.insertDataFrame(tableDB='Products', df=Insert_DF)
 
+    def UpdatePrices_DF(self, requestDate, instrument):
+        # Tickers to update
+        products = self.AP_Connection.getData(query=f"SELECT Id AS Id_Product, BBG_Ticker, Expiration FROM Products WHERE Id_Instrument=(SELECT Id FROM Instruments WHERE Name='{instrument}')")
+        products['Expiration'] = pd.to_datetime(products['Expiration'])
+
+        pricesDBColList = self.AP_Connection.getData(query=self.Queries.columnNamesFromTable(tableName='Prices'))
+
+        # Update Prices
+        pxSource = 'BDH'
+        if datetime.strptime(str(requestDate), '%Y%m%d').date() == date.today():
+            pxSource = 'BDP'
+
+        # Request Data
+        # Try to get BBG Data
+        try:
+            if pxSource == 'BDH':
+                BBG_Fields = self.keys_bbgPxBDH[self.keys_bbgPxRequest[instrument]]
+                BBG_Data = self.API_BBG.BBG_POST(bbg_request=pxSource, tickers=products['BBG_Ticker'].to_list(), fields=list(BBG_Fields.values()), date_start=requestDate, date_end=requestDate).dropna()
+                BBG_Data.rename(columns={'Ticker': 'BBG_Ticker'}, inplace=True)
+                BBG_Data['Refdate'] = pd.to_datetime(BBG_Data['Refdate'])
+
+            else:
+                BBG_Fields = self.keys_bbgPxBDP[self.keys_bbgPxRequest[instrument]]
+                BBG_Data = self.API_BBG.BBG_POST(bbg_request=pxSource, tickers=products['BBG_Ticker'].to_list(), fields=list(BBG_Fields.values())).dropna()
+                BBG_Data = BBG_Data.reset_index().rename(columns={'index': 'BBG_Ticker'})
+                BBG_Data['Refdate'] = pd.to_datetime(datetime.strptime(str(requestDate), '%Y%m%d').date())
+        except:
+            # Error while requesting BBG data
+            print('Not possible to get BBG data !')
+            return pd.DataFrame(columns=pricesDBColList['COLUMN_NAME'].to_list())
+        
+        else:
+            # Process requested BBG data
+            # Invert keys to items
+            colNames = dict((v,k) for k,v in BBG_Fields.items())
+            Insert_DataFrame = BBG_Data.rename(columns=colNames)
+
+            # Join to get Id_Products
+            Insert_DataFrame = Insert_DataFrame.merge(products, how='left', on='BBG_Ticker')
+
+            # Check if needs to calculate duration
+            if instrument in list(self.keys_calculateDuration.keys()):
+                # Calculate duration by calculateDuration dictionary
+                if self.keys_calculateDuration[instrument] == 'calcDur1':
+                    # BMF DI1
+                    # Adjust dataframe to show only values with open expiration
+                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=datetime.strptime(str(requestDate), '%Y%m%d').date())]
+                    Insert_DataFrame['BizDays'] = Insert_DataFrame.apply(lambda x: self.cal.bizdays(x.Refdate.strftime('%Y-%m-%d'), x.Expiration.strftime('%Y-%m-%d')), axis=1)
+                    Insert_DataFrame['BaseValue'] = 100000/((1+Insert_DataFrame['Yield']/100)**(Insert_DataFrame['BizDays']/252))
+                    Insert_DataFrame['DiscountValue'] = 100000/((1+Insert_DataFrame['Yield']/100+0.01/100)**(Insert_DataFrame['BizDays']/252))
+                    Insert_DataFrame['Duration'] = (np.abs(Insert_DataFrame['BaseValue']-Insert_DataFrame['DiscountValue'])/Insert_DataFrame['BaseValue'])*10000
+
+                elif self.keys_calculateDuration[instrument] == 'calcDur2':
+                    # BNTNB
+                    Insert_DataFrame['Duration'] = Insert_DataFrame['RISK_MID']/Insert_DataFrame['PU']*100
+
+                elif self.keys_calculateDuration[instrument] == 'calcDur3':
+                    # Adjust dataframe to show only values with open expiration
+                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=datetime.strptime(str(requestDate), '%Y%m%d').date())]
+                    Insert_DataFrame['Days360'] = Insert_DataFrame.apply(lambda x: self.days360(x.Refdate, x.Expiration), axis=1)
+                    Insert_DataFrame['BaseValue'] = 50000/(1+(Insert_DataFrame['Yield']/100*Insert_DataFrame['Days360']/360))
+                    Insert_DataFrame['DiscountValue'] = 50000/(1+((Insert_DataFrame['Yield']/100 + 0.01/100)*Insert_DataFrame['Days360']/360))
+                    Insert_DataFrame['Duration'] = (np.abs(Insert_DataFrame['BaseValue']-Insert_DataFrame['DiscountValue'])/Insert_DataFrame['BaseValue'])*10000
+
+
+            # DataFrame to be Inserted        
+            Insert_DataFrame = Insert_DataFrame[[col for col in pricesDBColList['COLUMN_NAME'].to_list() if col in list(Insert_DataFrame.columns)]]
+
+            # Adjust pending columns
+            emptyCols = [col for col in pricesDBColList['COLUMN_NAME'].to_list() if col not in list(Insert_DataFrame.columns)]
+            for col in emptyCols:
+                Insert_DataFrame[col] = np.nan
+
+            return Insert_DataFrame
+
 
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################
     '''
     def Create_Calendar(self):
-        """Function to create self.calendar base
+        """
+            Function to create self.calendar base
         """
         self.DF_Feriados_BRA['Data'].to_csv('Holidays.csv', header=False, index=None)
         self.holidays = load_holidays('Holidays.csv')
 
         self.cal = Calendar(self.holidays, ['Sunday', 'Saturday'], name='Brazil')
+
+    def days360(self, start_date, end_date, method_eu=False):
+        '''
+            Function to calculate diff with days 360
+        '''
+        start_day = start_date.day
+        start_month = start_date.month
+        start_year = start_date.year
+        end_day = end_date.day
+        end_month = end_date.month
+        end_year = end_date.year
+
+        if (
+            start_day == 31 or
+            (
+                method_eu is False and
+                start_month == 2 and (
+                    start_day == 29 or (
+                        start_day == 28 and
+                        start_date.is_leap_year is False
+                    )
+                )
+            )
+        ):
+            start_day = 30
+
+        if end_day == 31:
+            if method_eu is False and start_day != 30:
+                end_day = 1
+
+                if end_month == 12:
+                    end_year += 1
+                    end_month = 1
+                else:
+                    end_month += 1
+            else:
+                end_day = 30
+
+        return (
+            end_day + end_month * 30 + end_year * 360 -
+            start_day - start_month * 30 - start_year * 360)
