@@ -45,7 +45,20 @@ class Controller(Generic):
             for inst in instruments:
                 price_DF = self.Views.UpdatePrices_DF(requestDate=priceDate, instrument=inst)
                 self.UpdatePricesDB(Refdate=priceDate, UpdatePrices_DF=price_DF, instrument=inst)
-                
+
+    def IndexesValueUpdate(self, priceDate=int(datetime.today().strftime("%Y%m%d")), source='BBG'):
+        '''
+        Function to update IndexValue
+        '''
+        Update_DF = self.Views.indexesValueBBG(requestDate=priceDate)
+
+        if not Update_DF.empty:
+            # Delete History
+            self.Views.AP_Connection.execQuery(query=f"DELETE FROM IndexesValue WHERE Refdate='{priceDate}' AND Id_Index IN ({','.join(Update_DF['Id_Index'].astype(str).to_list())})")
+
+            # Update Values
+            self.Views.AP_Connection.insertDataFrame(tableDB='IndexesValue', df=Update_DF)
+
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################
     '''

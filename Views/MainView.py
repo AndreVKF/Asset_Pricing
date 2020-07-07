@@ -179,6 +179,7 @@ class MainView(Generic):
         # DataFrames from DB
         self.DF_Currencies = self.AP_Connection.getData(query=self.Queries.currenciesDF())
         self.DF_Instruments = self.AP_Connection.getData(query=self.Queries.instrumentsDF())
+        self.DF_Indexes = self.AP_Connection.getData(query=self.Queries.indexesDF())
 
     '''
     ##################################### MAIN FUNCTIONS #####################################
@@ -359,6 +360,34 @@ class MainView(Generic):
 
             return Insert_DataFrame
 
+    def indexesValueBBG(self, requestDate):
+        '''
+        Function to get IndexesValue from BBG
+        '''
+        # BBG Update
+        indexesBBG = self.DF_Indexes[(self.DF_Indexes['Id_Source']==1)]
+
+        # Check BDH/BDP
+        pxSource = 'BDH'
+        if datetime.strptime(str(requestDate), '%Y%m%d').date() == date.today():
+            pxSource = 'BDP'
+
+        # Get values from BBG
+        indexesValue = self.API_BBG.BBG_POST(bbg_request=pxSource, tickers=indexesBBG['BBG_Ticker'].to_list(), fields='PX_LAST', date_start=requestDate, date_end=requestDate)
+
+        # Adjust DataFrame
+        if pxSource=='BDH':
+            indexesValue.rename(columns={'PX_LAST': 'Value',
+                'Ticker': 'BBG_Ticker'}, inplace=True)
+        elif pxSource=='BDP':
+            indexesValue.reset_index(inplace=True)
+            indexesValue['Refdate'] = pd.to_datetime(datetime.strptime(str(requestDate), '%Y%m%d').date())
+            indexesValue.rename(columns={'PX_LAST': 'Value',
+                'index': 'BBG_Ticker'}, inplace=True)
+
+        indexesValue_DF = indexesValue.merge(self.DF_Indexes, how='left', on='BBG_Ticker')
+
+        return indexesValue_DF[self.AP_Connection.getData(query=self.Queries.columnNamesFromTable(tableName='IndexesValue'))['COLUMN_NAME'].to_list()]
 
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################

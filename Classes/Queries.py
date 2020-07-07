@@ -73,6 +73,22 @@ class Queries():
 
         return query
 
+    def indexesDF(self):
+        query = f"""
+        SELECT 
+            Id AS Id_Index
+            ,Name
+            ,BBG_Ticker
+            ,Id_Instrument
+            ,Id_Source
+            ,Generic_Maturity
+            ,Id_Generic_Maturity_Types
+        FROM 
+            Indexes
+        """
+
+        return query
+
     def QDeletePricesByProduct(self, Id_Products):
         query = f"""
         DELETE FROM Products WHERE Id_Product IN ({','.join(Id_Products)})
