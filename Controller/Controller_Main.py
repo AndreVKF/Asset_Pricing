@@ -11,7 +11,7 @@ class Controller(Generic):
         ''' Init Arguments '''
         # Attributes
         self.Refdate = Refdate
-        self.dtRefdate = pd.to_datetime(str(self.Refdate), format="%Y%m%d")
+        self.dtRefdate = pd.Timestamp(str(self.Refdate))
         self.Queries = Queries()
 
         # Views
@@ -22,39 +22,45 @@ class Controller(Generic):
     ##################################### MAIN FUNCTIONS #####################################
     '''
 
-    def PricesUpdateByInstrument(self, priceDate=int(datetime.today().strftime("%Y%m%d")), instruments='all'):
+    def PricesUpdateByInstrument(self, instruments='all', RequestDate=None):
         '''
         Function update price products
         '''
+        if RequestDate is None:
+            RequestDate = self.Refdate
+
         # Update All Instruments
         if instruments=='all':
             instrumentList = self.Views.AP_Connection.getData(query=f"SELECT Name FROM Instruments WHERE UpdateBBG=1")
             
             # Loop through instruments
             for inst in instrumentList['Name'].to_list():
-                price_DF = self.Views.UpdatePrices_DF(requestDate=priceDate, instrument=inst)
-                self.UpdatePricesDB(Refdate=priceDate, UpdatePrices_DF=price_DF, instrument=inst)
+                price_DF = self.Views.UpdatePrices_DF(requestDate=RequestDate, instrument=inst)
+                self.UpdatePricesDB(RequestDate=RequestDate, UpdatePrices_DF=price_DF, instrument=inst)
 
         # Update One Instrument
         elif isinstance(instruments, str):
-            price_DF = self.Views.UpdatePrices_DF(requestDate=priceDate, instrument=instruments)
-            self.UpdatePricesDB(Refdate=priceDate, UpdatePrices_DF=price_DF, instrument=inst)
+            price_DF = self.Views.UpdatePrices_DF(requestDate=RequestDate, instrument=instruments)
+            self.UpdatePricesDB(RequestDate=RequestDate, UpdatePrices_DF=price_DF, instrument=inst)
 
         # Update List of Instruments
         elif isinstance(instruments, list):
             for inst in instruments:
-                price_DF = self.Views.UpdatePrices_DF(requestDate=priceDate, instrument=inst)
-                self.UpdatePricesDB(Refdate=priceDate, UpdatePrices_DF=price_DF, instrument=inst)
+                price_DF = self.Views.UpdatePrices_DF(requestDate=RequestDate, instrument=inst)
+                self.UpdatePricesDB(RequestDate=RequestDate, UpdatePrices_DF=price_DF, instrument=inst)
 
-    def IndexesValueUpdate(self, priceDate=int(datetime.today().strftime("%Y%m%d")), source='BBG'):
+    def IndexesValueUpdate(self, source='BBG', RequestDate=None):
         '''
         Function to update IndexValue
         '''
-        Update_DF = self.Views.indexesValueBBG(requestDate=priceDate)
+        if RequestDate is None:
+            RequestDate = self.Refdate
+        
+        Update_DF = self.Views.indexesValueBBG(requestDate=RequestDate)
 
         if not Update_DF.empty:
             # Delete History
-            self.Views.AP_Connection.execQuery(query=f"DELETE FROM IndexesValue WHERE Refdate='{priceDate}' AND Id_Index IN ({','.join(Update_DF['Id_Index'].astype(str).to_list())})")
+            self.Views.AP_Connection.execQuery(query=f"DELETE FROM IndexesValue WHERE Refdate='{RequestDate}' AND Id_Index IN ({','.join(Update_DF['Id_Index'].astype(str).to_list())})")
 
             # Update Values
             self.Views.AP_Connection.insertDataFrame(tableDB='IndexesValue', df=Update_DF)
@@ -62,14 +68,17 @@ class Controller(Generic):
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################
     '''
-    def UpdatePricesDB(self, Refdate, UpdatePrices_DF, instrument=None):
+    def UpdatePricesDB(self, UpdatePrices_DF, instrument=None, RequestDate=None):
         if instrument is not None:
             print(f'Updating PricesDB {instrument}')
 
         ''' Check if not empty '''
         if not UpdatePrices_DF.empty:
+            if RequestDate is None:
+                RequestDate = self.Refdate
+            
             # Delete history
-            self.Views.AP_Connection.execQuery(query=f"DELETE FROM Prices WHERE Refdate='{Refdate}' AND Id_Product IN ({','.join(UpdatePrices_DF['Id_Product'].astype(str).to_list())})")
+            self.Views.AP_Connection.execQuery(query=f"DELETE FROM Prices WHERE Refdate='{RequestDate}' AND Id_Product IN ({','.join(UpdatePrices_DF['Id_Product'].astype(str).to_list())})")
 
             # Insert Prices_DF
             self.Views.AP_Connection.insertDataFrame(tableDB='Prices', df=UpdatePrices_DF)

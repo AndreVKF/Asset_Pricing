@@ -331,7 +331,7 @@ class MainView(Generic):
                 if self.keys_calculateDuration[instrument] == 'calcDur1':
                     # BMF DI1
                     # Adjust dataframe to show only values with open expiration
-                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=datetime.strptime(str(requestDate), '%Y%m%d').date())]
+                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=pd.Timestamp(str(requestDate)))]
                     Insert_DataFrame['BizDays'] = Insert_DataFrame.apply(lambda x: self.cal.bizdays(x.Refdate.strftime('%Y-%m-%d'), x.Expiration.strftime('%Y-%m-%d')), axis=1)
                     Insert_DataFrame['BaseValue'] = 100000/((1+Insert_DataFrame['Yield']/100)**(Insert_DataFrame['BizDays']/252))
                     Insert_DataFrame['DiscountValue'] = 100000/((1+Insert_DataFrame['Yield']/100+0.01/100)**(Insert_DataFrame['BizDays']/252))
@@ -343,7 +343,7 @@ class MainView(Generic):
 
                 elif self.keys_calculateDuration[instrument] == 'calcDur3':
                     # Adjust dataframe to show only values with open expiration
-                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=datetime.strptime(str(requestDate), '%Y%m%d').date())]
+                    Insert_DataFrame = Insert_DataFrame[(Insert_DataFrame['Expiration']>=pd.Timestamp(str(requestDate)))]
                     Insert_DataFrame['Days360'] = Insert_DataFrame.apply(lambda x: self.days360(x.Refdate, x.Expiration), axis=1)
                     Insert_DataFrame['BaseValue'] = 50000/(1+(Insert_DataFrame['Yield']/100*Insert_DataFrame['Days360']/360))
                     Insert_DataFrame['DiscountValue'] = 50000/(1+((Insert_DataFrame['Yield']/100 + 0.01/100)*Insert_DataFrame['Days360']/360))
