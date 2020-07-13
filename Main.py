@@ -1,4 +1,5 @@
 from Controller.Controller_Main import Controller
+from datetime import datetime
 import sys
 
 if __name__=='__main__':
@@ -9,5 +10,4 @@ if __name__=='__main__':
 
     ########### Update Instruments ###########
     controller.PricesUpdateByInstrument()
-
-
+    

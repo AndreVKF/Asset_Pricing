@@ -325,6 +325,9 @@ class MainView(Generic):
             # Join to get Id_Products
             Insert_DataFrame = Insert_DataFrame.merge(products, how='left', on='BBG_Ticker')
 
+            # Add Last_Update
+            Insert_DataFrame['Last_Update'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             # Check if needs to calculate duration
             if instrument in list(self.keys_calculateDuration.keys()):
                 # Calculate duration by calculateDuration dictionary
@@ -388,6 +391,15 @@ class MainView(Generic):
         indexesValue_DF = indexesValue.merge(self.DF_Indexes, how='left', on='BBG_Ticker')
 
         return indexesValue_DF[self.AP_Connection.getData(query=self.Queries.columnNamesFromTable(tableName='IndexesValue'))['COLUMN_NAME'].to_list()]
+
+    def indexesValueCalculated(self, requestDate):
+        '''
+        Function to generate DataFrame for calculated index value
+        '''
+        # Base DataFrame
+        indexes_DF = self.DF_Indexes[(self.DF_Indexes['Id_Source']==2)]
+
+        # Daily sin
 
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################
