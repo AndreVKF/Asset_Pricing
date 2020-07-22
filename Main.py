@@ -3,7 +3,11 @@ from datetime import datetime
 import sys
 
 if __name__=='__main__':
-    controller = Controller(Refdate=int(sys.argv[1]))
+    Refdate = input("Refdate: ")
+    # Timer
+    iniTime = datetime.now()
+
+    controller = Controller(Refdate=int(Refdate))
 
     ########### Update Indexes ###########
     controller.IndexesValueUpdate()
@@ -11,3 +15,4 @@ if __name__=='__main__':
     ########### Update Instruments ###########
     controller.PricesUpdateByInstrument()
     
+    print(f"Total Runtime: {datetime.now() - iniTime}")

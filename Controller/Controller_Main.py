@@ -55,7 +55,8 @@ class Controller(Generic):
         '''
         if RequestDate is None:
             RequestDate = self.Refdate
-        
+
+        # Update From BBG        
         Update_DF = self.Views.indexesValueBBG(requestDate=RequestDate)
 
         if not Update_DF.empty:
@@ -64,6 +65,16 @@ class Controller(Generic):
 
             # Update Values
             self.Views.AP_Connection.insertDataFrame(tableDB='IndexesValue', df=Update_DF)
+
+        # Update Values Synthetic
+        IndexesValue_Syn_DF = self.Views.indexesValueCalculated(requestDate=RequestDate)
+
+        if not IndexesValue_Syn_DF.empty:
+            # Delete History
+            self.Views.AP_Connection.execQuery(query=f"DELETE FROM IndexesValue WHERE Refdate='{RequestDate}' AND Id_Index IN ({','.join(IndexesValue_Syn_DF['Id_Index'].astype(str).to_list())})")
+
+            # Update Values
+            self.Views.AP_Connection.insertDataFrame(tableDB='IndexesValue', df=IndexesValue_Syn_DF)
 
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################

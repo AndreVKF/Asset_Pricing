@@ -27,6 +27,33 @@ class Queries():
 
         return query
 
+    def getViewTable(self, refdate, viewName, fieldValueName, securityType='all'):
+        # Ref_Id Adjustment and DataField Name
+        if securityType=='all':
+            refIdQ = "Ref_Id AS Ref_Id"
+            addWhereQ = ""
+        elif securityType=='Product':
+            refIdQ = "Ref_Id AS Id_Product"
+            addWhereQ = " AND Security_Type='Product'"
+        elif securityType=='Index':
+            refIdQ = "Ref_Id AS Id_Index"
+            addWhereQ = " AND Security_Type='Index'"
+        
+        query = f"""
+        SELECT
+            Valuation
+            ,{fieldValueName}
+            ,{refIdQ}
+        FROM
+            {viewName}
+        WHERE
+            Refdate='{refdate}'
+        """
+
+        orderByQ = " ORDER BY Valuation"
+
+        return (query + addWhereQ + orderByQ)
+
     def selectProductsByInstruments(self, instrument):
         query = f"""
         SELECT

@@ -36,7 +36,9 @@ class MainView(Generic):
         self.DF_Feriados_BRA = self.AP_Connection.getData(query = self.Queries.QFeriados_BRA())
         self.Create_Calendar()
 
+        # Misc Variables
         self.DateColumns = ['MATURITY', 'FUTURES_VALUATION_DATE', 'FUT_NOTICE_FIRST', 'FUT_FIRST_TRADE_DT']
+        self.dailyCDSIndexes = [5,6,8,9,10,11]
 
         # Ticker Set for Products Table
         self.keys_bbgDict = {
@@ -399,7 +401,15 @@ class MainView(Generic):
         # Base DataFrame
         indexes_DF = self.DF_Indexes[(self.DF_Indexes['Id_Source']==2)]
 
-        # Daily sin
+        # I - Adjustment for daily CDS
+        base_DF = indexes_DF.loc[indexes_DF['Id_Index'].isin(self.dailyCDSIndexes)]
+
+        # Return DF
+        return_DF = pd.DataFrame(base_DF['Id_Index'])
+        return_DF['Value'] = 25
+        return_DF['Refdate'] = pd.to_datetime(datetime.strptime(str(requestDate), '%Y%m%d').date())
+
+        return return_DF[self.AP_Connection.getData(query=self.Queries.columnNamesFromTable(tableName='IndexesValue'))['COLUMN_NAME'].to_list()]
 
     '''
     ##################################### AUXILIAR FUNCTIONS #####################################
