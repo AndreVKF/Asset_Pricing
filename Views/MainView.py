@@ -365,6 +365,7 @@ class MainView(Generic):
 
             return Insert_DataFrame
 
+    
     def indexesValueBBG(self, requestDate):
         '''
         Function to get IndexesValue from BBG

@@ -7,7 +7,7 @@ from bizdays import *
 import pandas as pd
 import numpy as np
 
-Refdate = 20200722
+Refdate = 20200727
 Controller = Controller(Refdate=Refdate)
 Views = Controller.Views
 
@@ -16,12 +16,14 @@ DF_Instruments = Views.DF_Instruments
 DF_Instruments[(DF_Instruments['CalculateFRA']==True)]
 
 # Create FRA Table
-Instrument = "BMF DI1 Future (OD)"
+Instrument = "USSW - USD SWAP (LIB)"
 CalcValueType = "Yield"
-CalcType = "Brazil Compounding"
 
-# Get View Name
-View_Name = DF_Instruments[(DF_Instruments['Name']==Instrument)]['View_Name'][0]
+# Get ViewName/CalcType
+Instrument_Row = DF_Instruments[(DF_Instruments['Name']==Instrument)]
+
+View_Name = Instrument_Row['View_Name'].values[0]
+Id_CalcType = Instrument_Row['Id_CalculationType'].values[0]
 
 # Get DataFrame
 View_DF = Views.AP_Connection.getData(query=Views.Queries.getViewTable(refdate=Refdate, viewName=View_Name, fieldValueName=CalcValueType, securityType='Product'), dtparse=['Valuation'])
@@ -46,10 +48,38 @@ for index, row in View_DF.iterrows():
         else:
             FRA_DF = BaseFRA_DF
 
+# Additional Columns
+FRA_DF['Refdate'] = pd.to_datetime(str(Refdate), format="%Y%m%d")
+FRA_DF['Id_Instrument'] = DF_Instruments[(DF_Instruments['Name']==Instrument)]['Id'].values[0]
+
 # Order Columns
-FRA_DF = FRA_DF[['Base_Valuation',
+FRA_DF = FRA_DF[['Refdate',
+    'Id_Instrument',
+    'Base_Valuation',
     'Base_Value',
     'Base_Id_Product',
     'End_Valuation',
     'End_Value',
     'End_Id_Product']]
+
+########## Calculate FRAs According to CalculationType ##########
+# Brazil Compounding => Workdays Base 252
+if Id_CalcType == 1:
+    FRA_DF['Base_Days'] = FRA_DF.apply(lambda x: Views.cal.bizdays(x.Refdate.strftime("%Y-%m-%d"), x.Base_Valuation.strftime("%Y-%m-%d")), axis=1)
+    FRA_DF['End_Days'] = FRA_DF.apply(lambda x: Views.cal.bizdays(x.Refdate.strftime("%Y-%m-%d"), x.End_Valuation.strftime("%Y-%m-%d")), axis=1)
+    FRA_DF['Between_Days'] = FRA_DF.apply(lambda x: Views.cal.bizdays(x.Base_Valuation.strftime("%Y-%m-%d"), x.End_Valuation.strftime("%Y-%m-%d")), axis=1)
+
+    FRA_DF['FRA'] = (((((1+ FRA_DF['End_Value']/100) ** (FRA_DF['End_Days']/252)) / ((1+ FRA_DF['Base_Value']/100) ** (FRA_DF['Base_Days']/252))) ** (252/FRA_DF['Between_Days'])) - 1) * 100
+
+# Base Days 360
+elif Id_CalcType == 2:
+    FRA_DF['Base_Days'] = FRA_DF.apply(lambda x: Views.days360(x.Refdate, x.Base_Valuation), axis=1)
+    FRA_DF['End_Days'] = FRA_DF.apply(lambda x: Views.days360(x.Refdate, x.End_Valuation), axis=1)
+    FRA_DF['Between_Days'] = FRA_DF.apply(lambda x: Views.days360(x.Base_Valuation, x.End_Valuation), axis=1)
+
+    FRA_DF['FRA'] = (((FRA_DF['End_Value']/100*FRA_DF['End_Days']/360) - (FRA_DF['Base_Value']/100*FRA_DF['Base_Days']/360)) * 360/FRA_DF['Between_Days']) * 100
+
+
+FRA_DF["Last_Update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+FRA_DF[Views.AP_Connection.getData(query=Views.Queries.columnNamesFromTable(tableName='FRA_Tb'))['COLUMN_NAME'].to_list()]
