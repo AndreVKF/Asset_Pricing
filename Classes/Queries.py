@@ -54,6 +54,13 @@ class Queries():
 
         return (query + addWhereQ + orderByQ)
 
+    def valueType(self):
+        query = """
+        SELECT * FROM ValueType
+        """
+
+        return query
+
     def selectProductsByInstruments(self, instrument):
         query = f"""
         SELECT
