@@ -383,6 +383,12 @@ class MainView(Generic):
 
         # Get DataFrame
         View_DF = self.AP_Connection.getData(query=self.Queries.getViewTable(refdate=requestDate, viewName=View_Name, fieldValueName=CalcValueType, securityType='Product'), dtparse=['Valuation'])
+        
+        # Check if view has data
+        if View_DF.empty:
+            FRA_DF = pd.DataFrame(columns=self.AP_Connection.getData(query=self.Queries.columnNamesFromTable(tableName='FRA_Tb'))['COLUMN_NAME'].to_list())
+
+            return FRA_DF
 
         # Create FRA Base DataFrame
         for index, row in View_DF.iterrows():
@@ -394,9 +400,9 @@ class MainView(Generic):
                     f'{CalcValueType}': 'End_Value',
                     'Id_Product': 'End_Id_Product'}, inplace=True)
 
-                BaseFRA_DF['Base_Valuation'] = row['Valuation']
-                BaseFRA_DF['Base_Value'] = row[f'{CalcValueType}']
-                BaseFRA_DF['Base_Id_Product'] = row['Id_Product']
+                BaseFRA_DF.loc[:, 'Base_Valuation'] = row['Valuation']
+                BaseFRA_DF.loc[:, 'Base_Value'] = row[f'{CalcValueType}']
+                BaseFRA_DF.loc[:, 'Base_Id_Product'] = row['Id_Product']
 
                 # Check if FRA_DF exists
                 if 'FRA_DF' in locals():

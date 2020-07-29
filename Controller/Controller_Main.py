@@ -49,6 +49,33 @@ class Controller(Generic):
                 price_DF = self.Views.UpdatePrices_DF(requestDate=RequestDate, instrument=inst)
                 self.UpdatePricesDB(RequestDate=RequestDate, UpdatePrices_DF=price_DF, instrument=inst)
 
+    def FRAsUpdateByInstrument(self, instruments='all', RequestDate=None):
+        '''
+        Function to update FRAs
+        '''
+        if RequestDate is None:
+            RequestDate = self.Refdate
+
+        # Update all instruments
+        if instruments=='all':
+            instrumentList = self.Views.AP_Connection.getData(query=f"SELECT Name FROM Instruments WHERE CalculateFRA=1")
+
+            # Loop through instruments
+            for inst in instrumentList['Name'].to_list():
+                FRA_DF = self.Views.calculateFRAs(requestDate=RequestDate, Instrument=inst)
+                self.UpdateFRAsDB(FRA_DF=FRA_DF, RequestDate=RequestDate, instrument=inst)
+
+        # Update One Instrument
+        elif isinstance(instruments, str):
+            FRA_DF = self.Views.calculateFRAs(requestDate=RequestDate, Instrument=instruments)
+            self.UpdateFRAsDB(FRA_DF=FRA_DF, RequestDate=RequestDate, instrument=instruments)
+
+        # Update List of Instruments
+        elif isinstance(instruments, list):
+            for inst in instruments:
+                FRA_DF = self.Views.calculateFRAs(requestDate=RequestDate, Instrument=inst)
+                self.UpdateFRAsDB(FRA_DF=FRA_DF, RequestDate=RequestDate, instrument=inst)
+
     def IndexesValueUpdate(self, source='BBG', RequestDate=None):
         '''
         Function to update IndexValue
@@ -80,6 +107,9 @@ class Controller(Generic):
     ##################################### AUXILIAR FUNCTIONS #####################################
     '''
     def UpdatePricesDB(self, UpdatePrices_DF, instrument=None, RequestDate=None):
+        '''
+        Flow controller to update Prices Table
+        '''
         if instrument is not None:
             print(f'Updating PricesDB {instrument}')
 
@@ -95,3 +125,27 @@ class Controller(Generic):
             self.Views.AP_Connection.insertDataFrame(tableDB='Prices', df=UpdatePrices_DF)
         else:
             print('No data avilable in BBG.')
+
+    def UpdateFRAsDB(self, FRA_DF, RequestDate=None, instrument=None):
+        '''
+        Flow controller to update FRAs table
+        '''
+        if instrument is not None:
+            print(f'Updating PricesDB {instrument}')
+        else:
+            return -1
+
+        ''' Check if not empty '''
+        if not FRA_DF.empty:
+            if RequestDate is None:
+                RequestDate = self.Refdate
+
+            # Delete history
+            self.Views.AP_Connection.execQuery(query=f"DELETE FROM FRA_Tb WHERE Id_Instrument=(SELECT Id FROM Instruments WHERE Name='{instrument}')")
+
+            # Insert into FRA Table
+            self.Views.AP_Connection.insertDataFrame(tableDB='FRA_Tb', df=FRA_DF)
+        else:
+            print(f"Empty FRA Table for {instrument}")
+
+        

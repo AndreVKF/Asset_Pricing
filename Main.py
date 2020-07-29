@@ -14,5 +14,8 @@ if __name__=='__main__':
 
     ########### Update Instruments ###########
     controller.PricesUpdateByInstrument()
-    
+
+    ########### Update FRAs ###########
+    controller.FRAsUpdateByInstrument()
+
     print(f"Total Runtime: {datetime.now() - iniTime}")
