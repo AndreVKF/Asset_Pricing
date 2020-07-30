@@ -131,7 +131,7 @@ class Controller(Generic):
         Flow controller to update FRAs table
         '''
         if instrument is not None:
-            print(f'Updating PricesDB {instrument}')
+            print(f'Updating FRA Table {instrument}')
         else:
             return -1
 

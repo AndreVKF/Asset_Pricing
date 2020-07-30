@@ -11,6 +11,9 @@ Refdate = 20200729
 Controller = Controller(Refdate=Refdate)
 Views = Controller.Views
 
+Views.AP_Connection.getData(query=Views.Queries.columnNamesFromTable(tableName='FRA_Tb'))['COLUMN_NAME'].to_list()
+
+
 Views.calculateFRAs(requestDate=20200728, Instrument='BMF US Dollar Fut (UC)')
 
 DF_Instruments = Views.DF_Instruments
@@ -27,3 +30,4 @@ Instrument_Row = DF_Instruments[(DF_Instruments['Name']==Instrument)]
 View_Name = Instrument_Row['View_Name'].values[0]
 Id_CalcType = Instrument_Row['Id_CalculationType'].values[0]
 
+df = pd.DataFrame(columns=[1, 2])

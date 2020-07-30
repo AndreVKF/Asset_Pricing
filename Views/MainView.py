@@ -411,8 +411,8 @@ class MainView(Generic):
                     FRA_DF = BaseFRA_DF
 
         # Additional Columns
-        FRA_DF['Refdate'] = pd.to_datetime(str(requestDate), format="%Y%m%d")
-        FRA_DF['Id_Instrument'] = self.DF_Instruments[(self.DF_Instruments['Name']==Instrument)]['Id'].values[0]
+        FRA_DF.loc[:, 'Refdate'] = pd.to_datetime(str(requestDate), format="%Y%m%d")
+        FRA_DF.loc[:, 'Id_Instrument'] = self.DF_Instruments[(self.DF_Instruments['Name']==Instrument)]['Id'].values[0]
 
         # Order Columns
         FRA_DF = FRA_DF[['Refdate',
